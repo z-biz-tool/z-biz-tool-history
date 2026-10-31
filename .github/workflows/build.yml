@@ -23,9 +23,16 @@ jobs:
           - platform: macos-latest
             args: '--target aarch64-apple-darwin'
             label: macOS-ARM
-          - platform: macos-latest
+            rust-targets: 'aarch64-apple-darwin'
+          # ⚠️ Intel 腿必须钉在 Intel 主机（macos-13）上，不能用 macos-latest：
+          # macos-latest 自 2026 起已是 ARM 主机，交叉编译出的 x86_64 macOS 包
+          # 不会被 tauri-action 上传到 Release（release 里查不到 x64 的
+          # .app.tar.gz），于是「生成 updater 片段」那步必然匹配不到资产而失败
+          # （2026-10-31 v0.1.0 首次发布实测：Intel 腿零 macOS 资产，latest.json 推不出去）。
+          - platform: macos-13
             args: '--target x86_64-apple-darwin'
             label: macOS-Intel
+            rust-targets: ''
           - platform: ubuntu-22.04
             args: ''
             label: Linux
@@ -63,7 +70,9 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.99.0
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          # 只装本腿真正需要的 target：Intel 腿跑在 Intel 主机上，目标是原生，
+          # 装 aarch64 交叉工具链纯属浪费 runner 时间。
+          targets: ${{ matrix.rust-targets }}
 
       # GitHub 新版 token 格式会写坏 cargo config，导致后续 cargo 报
       # "Unexpected character at row 2, col 24"，删掉让它重新生成
@@ -204,7 +213,10 @@ jobs:
             'index($2, ext) == length($2) - length(ext) + 1 && index($2, arch) > 0 { print }' /tmp/assets.tsv)
           COUNT=$(printf '%s\n' "$MATCHES" | awk 'NF' | wc -l | tr -d ' ')
           if [ "$COUNT" != "1" ]; then
-            echo "::error::在 release $TAG 里按「$EXT + $ARCH_TOKEN」匹配到 $COUNT 个资产（应为 1）："
+            # 变量名后面紧跟中文标点时，bash 在 UTF-8 locale 下会把标点并进变量名
+            # （$ARCH_TOKEN」 会被当成一个不存在的变量），报出看不懂的 unbound variable。
+            # 一律用 ${} 把名字边界写死。
+            echo "::error::在 release $TAG 里按「${EXT} + ${ARCH_TOKEN}」匹配到 ${COUNT} 个资产（应为 1）："
             printf '%s\n' "$MATCHES"
             cut -f2 /tmp/assets.tsv
             exit 1

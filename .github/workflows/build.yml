@@ -95,15 +95,17 @@ jobs:
             args: '--target aarch64-apple-darwin'
             label: macOS-ARM
             rust-targets: 'aarch64-apple-darwin'
-          # ⚠️ Intel 腿必须钉在 Intel 主机（macos-13）上，不能用 macos-latest：
-          # macos-latest 自 2026 起已是 ARM 主机，交叉编译出的 x86_64 macOS 包
-          # 不会被 tauri-action 上传到 Release（release 里查不到 x64 的
-          # .app.tar.gz），于是「生成 updater 片段」那步必然匹配不到资产而失败
-          # （2026-10-31 v0.1.0 首次发布实测：Intel 腿零 macOS 资产，latest.json 推不出去）。
-          - platform: macos-13
+          # Intel 腿跑在 macos-latest（ARM 主机）上**交叉编译** —— 家族惯例，
+          # math/music/cpu 的 x64 资产全部实证可用（math v0.2.1 四平台资产齐全）。
+          #
+          # ⚠️ 别改成 macos-13（Intel 主机）：该镜像已退役 ⇒ 排队 20+ 分钟不分配，
+          # run 会永远卡在 queued（2026-10-31 v0.1.0 第三轮实测）。
+          # 首轮发布 Intel 腿失败的真因也不是交叉编译，而是双 Release 竞态
+          # （Intel 腿的资产上传到了另一个 Release 里）—— 已由 prepare-release 修掉。
+          - platform: macos-latest
             args: '--target x86_64-apple-darwin'
             label: macOS-Intel
-            rust-targets: ''
+            rust-targets: 'x86_64-apple-darwin'
           - platform: ubuntu-22.04
             args: ''
             label: Linux

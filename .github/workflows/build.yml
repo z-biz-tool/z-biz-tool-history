@@ -68,12 +68,15 @@ jobs:
             gh api -X DELETE "repos/$REPO/releases/$id" || true
           done
 
+          # ⚠️ 布尔值必须用 -F（会做类型转换），用 -f 会当成字符串
+          # ⇒ GitHub 返回 422 "For 'properties/draft', \"false\" is not a boolean"。
+          # ⚠️ 续行反斜杠后面**不能跟注释行** —— YAML 会把注释当脚本内容传给 bash，
+          # bash 里 `\` + 注释行 ⇒ 续行被截断，后面的 `-F draft=false` 变成独立命令
+          # ⇒ "command not found"（exit 127）。注释一律写在整条命令之前。
           NEW_ID=$(gh api -X POST "repos/$REPO/releases" \
             -f tag_name="$TAG" \
             -f name="$TAG" \
             -f body="See the assets below to download this version." \
-            # ⚠️ 布尔值必须用 -F（会做类型转换），用 -f 会当成字符串
-            # ⇒ GitHub 返回 422 "For 'properties/draft', \"false\" is not a boolean"。
             -F draft=false -F prerelease=false \
             --jq .id)
           echo "新建 release id=${NEW_ID}（tag ${TAG}）"

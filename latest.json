@@ -1,0 +1,23 @@
+{
+  "version": "0.1.0",
+  "notes": "See the assets below to download this version.",
+  "pub_date": "2026-10-31T16:16:24Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "url": "https://github.com/z-biz-tool/z-biz-tool-history/releases/download/v0.1.0/z-biz-tool-history_aarch64.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSdXNzZDVpbWtnK2FiY2dVRjdhc2lQanRQN21jWTZSOE16VXNhSmhvbmN4alhZV1FGSDMybEZ6dWJnZURHMVJyaTNUWVJVa2tkalpDNElnQjZRV2ZpcVRmU3dRS1ZZeWdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNDYzMjM4CWZpbGU6ei1iaXotdG9vbC1oaXN0b3J5LmFwcC50YXIuZ3oJdmVyc2lvbjowLjEuMAp0Mkg1bUphOXlWdk1ySklZYVRJaFdncGpoV1VORHhhbUxRM2U2dUZNdW5tcW5NaVMwbjFYTHVWRFFBd0hHUEtGZnIvcDd6RnhTbXcrSWVJU0M4VS9EZz09Cg=="
+    },
+    "darwin-x86_64": {
+      "url": "https://github.com/z-biz-tool/z-biz-tool-history/releases/download/v0.1.0/z-biz-tool-history_x64.app.tar.gz",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSdXNzZDVpbWtnK2JiWnFWREZXeDRCVGxBRTRtY0VUdjZIMXYzcENkRG9kODFFWk90dWZXLzhNQUdkUXNHVkJ0MWV0RnFvNHVJaDIrd0lBWmZkb0V5TUNodHUzcGoxY1E4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNDYzMjQyCWZpbGU6ei1iaXotdG9vbC1oaXN0b3J5LmFwcC50YXIuZ3oJdmVyc2lvbjowLjEuMApjRG5kZHl3NFVZdDZMakhvNkxFcGIwcEpsT2NHbzZKdlVWZHA0amxFRE84UEJadGU3aWJLNUYzYlhwV2dVcmI0WTZXN1luSEN0NW4walNHZWRLUlREZz09Cg=="
+    },
+    "linux-x86_64": {
+      "url": "https://github.com/z-biz-tool/z-biz-tool-history/releases/download/v0.1.0/z-biz-tool-history_0.1.0_amd64.AppImage",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSdXNzZDVpbWtnK2FWMHdTNWUwTUlvRTQ2eDNNenZFcHQxU01Rd2xVYjRESS9WeWFHZ2UxQndsT1N2RC9iMGxuWEp6L000djEwTnZMc01iUHlGNThlSTVkYW1weVBYZ1FVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNDYzMzQyCWZpbGU6ei1iaXotdG9vbC1oaXN0b3J5XzAuMS4wX2FtZDY0LkFwcEltYWdlCXZlcnNpb246MC4xLjAKbWZhU3ArWTZIUWRPWVJ4N0hJb2syM0ZIYWtFMm9iV3FKcUdrc2NzNTdmS29jWFQ1UEZGb3ljVEFDa3crZlhFYW16OHk2RDllZnpOWEhiWUhWUkk4QlE9PQo="
+    },
+    "windows-x86_64": {
+      "url": "https://github.com/z-biz-tool/z-biz-tool-history/releases/download/v0.1.0/z-biz-tool-history_0.1.0_x64_en-US.msi",
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSdXNzZDVpbWtnK1FLN1JTd3ZhamJVSzEwdFB3QWpCb3FacG1yTG53aEwwOWF5TldoUE1XMFA4dUhJRlpOclJMcmYyZWFJZG5MVnQyV05CUStzeFhObmx5U0dScWM2ZGc4PQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzkzNDYzMzQ5CWZpbGU6ei1iaXotdG9vbC1oaXN0b3J5XzAuMS4wX3g2NF9lbi1VUy5tc2kJdmVyc2lvbjowLjEuMAorMmRJcVpYV3lmVVlWT1A0TWFCcmhTQjhEc1hnQjRRcU5HRG9RQTRqT1MwbktTQXgxcmdZUC9KRFJJSTdNaHpNbkZaRlZWRjdCdHVrWkwvb2dIQWtCZz09Cg=="
+    }
+  }
+}

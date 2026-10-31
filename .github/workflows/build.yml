@@ -1,0 +1,309 @@
+name: Build & Release
+
+# 打 tag（v*）才出包：Tauri 桌面安装包四腿（macOS ARM/Intel、Linux、Windows），
+# tauri-action 在 tag 上建 Release 并上传安装包；push main 只跑 ci.yml 的便宜门禁。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # latest-json 作业据此决定要不要推 manifest（缺签名密钥时整条更新通道静默降级）
+    outputs:
+      signing-mode: ${{ steps.signing.outputs.mode }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: '--target aarch64-apple-darwin'
+            label: macOS-ARM
+          - platform: macos-latest
+            args: '--target x86_64-apple-darwin'
+            label: macOS-Intel
+          - platform: ubuntu-22.04
+            args: ''
+            label: Linux
+          - platform: windows-latest
+            args: ''
+            label: Windows
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # cap-hub 走 ../../z-biz-tool-capability path 依赖：runner 上只有本仓，
+      # 先把公共能力仓取到 workspace 内，再链接成 src-tauri 的同级目录。
+      - name: Checkout capability (path deps)
+        uses: actions/checkout@v4
+        with:
+          repository: z-biz-tool/z-biz-tool-capability
+          path: .capability
+
+      - name: Link capability (Unix)
+        if: runner.os != 'Windows'
+        run: ln -sfn "$GITHUB_WORKSPACE/.capability" "$GITHUB_WORKSPACE/../z-biz-tool-capability"
+
+      - name: Link capability (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: New-Item -ItemType Junction -Path "$env:GITHUB_WORKSPACE\..\z-biz-tool-capability" -Target "$env:GITHUB_WORKSPACE\.capability" | Out-Null
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      # GitHub 新版 token 格式会写坏 cargo config，导致后续 cargo 报
+      # "Unexpected character at row 2, col 24"，删掉让它重新生成
+      - name: Reset broken cargo config
+        shell: bash
+        run: rm -f "$HOME/.cargo/config.toml" "$USERPROFILE/.cargo/config.toml"
+
+      - name: Install system deps (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libssl-dev libgtk-3-dev
+
+      - name: Install npm dependencies
+        run: npm install
+
+      # 自动更新签名（2026-10-25 接入，详见 z-biz-tool-lead/doc/分发/updater-官方化指南.md）：
+      # tauri.conf.json 里 createUpdaterArtifacts=true + 非空 pubkey 时，tauri build 在
+      # 没有 TAURI_SIGNING_PRIVATE_KEY 的情况下会**直接报错**（"A public key has been
+      # found, but no private key"）。这里做 fail-soft：缺 secret 就加 --no-sign 跳过
+      # 签名并打 warning，保证手工触发/密钥未就绪时的发布构建不挂。
+      # 密钥就绪后（GitHub Secrets 配好 TAURI_SIGNING_PRIVATE_KEY + TAURI_SIGNING_PRIVATE_KEY_PASSWORD）
+      # 自动恢复签名 + 生成 .sig + 推 latest.json。
+      - name: Check updater signing secret (fail-soft)
+        id: signing
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "mode=signed" >> "$GITHUB_OUTPUT"
+            echo "extra-args=" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::未配置 TAURI_SIGNING_PRIVATE_KEY：本次发布跳过更新包签名（--no-sign），不生成 latest.json。配置方法见 doc/分发/updater-官方化指南.md"
+            echo "mode=unsigned" >> "$GITHUB_OUTPUT"
+            echo "extra-args=--no-sign" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ steps.signing.outputs.mode == 'signed' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ steps.signing.outputs.mode == 'signed' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: '${{ github.ref_name }}'
+          releaseBody: 'See the assets below to download this version.'
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }} ${{ steps.signing.outputs.extra-args }}
+          # ⚠️ 参数名必须写 includeUpdaterJson —— 写成 uploadUpdaterJson 会被 tauri-action
+          # 当未知输入**静默忽略**（只报一条 warning），于是每条矩阵腿都各自生成并上传
+          # latest.json，四腿并发抢同一个资产名，后到者把先到的顶掉、或直接把那条腿
+          # 判成失败（2026-10-30 note v1.2.0 实测：macOS x64 腿就倒在 "Uploading latest.json"）。
+          # latest.json 一律由 latest-json 作业统一生成。
+          includeUpdaterJson: false
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.label }}
+          path: |
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.app
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/*/release/bundle/**/*.dmg
+            src-tauri/target/*/release/bundle/**/*.app
+
+      # 本平台的 latest.json 条目（url 指向 release 资产，signature 是 .sig 文件内容）。
+      # v2 模式（createUpdaterArtifacts: true）的更新包：macOS=*.app.tar.gz、
+      # Windows=*.msi、Linux=*.AppImage，各自旁边应有同名 .sig。
+      # ⚠️ 目录名不带点：actions/upload-artifact@v4 **默认不上传隐藏文件/目录**，
+      # 早期写成 .updater-fragments 时四平台都报 "No files were found"，
+      # 于是 latest.json 永远推不出去、更新通道静默失效（v0.1.0 首次发布实测踩到）。
+      - name: Generate updater manifest fragment
+        if: steps.signing.outputs.mode == 'signed'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p updater-fragments
+          case "${{ matrix.label }}" in
+            macOS-ARM)
+              PLATFORM="darwin-aarch64"
+              BUNDLE_DIR="src-tauri/target/aarch64-apple-darwin/release/bundle/macos"
+              PATTERN="*.app.tar.gz"
+              ;;
+            macOS-Intel)
+              PLATFORM="darwin-x86_64"
+              BUNDLE_DIR="src-tauri/target/x86_64-apple-darwin/release/bundle/macos"
+              PATTERN="*.app.tar.gz"
+              ;;
+            Linux)
+              PLATFORM="linux-x86_64"
+              BUNDLE_DIR="src-tauri/target/release/bundle/appimage"
+              PATTERN="*.AppImage"
+              ;;
+            Windows)
+              PLATFORM="windows-x86_64"
+              BUNDLE_DIR="src-tauri/target/release/bundle/msi"
+              PATTERN="*.msi"
+              ;;
+            *)
+              echo "::error::未知 matrix.label: ${{ matrix.label }}"
+              exit 1
+              ;;
+          esac
+          ASSET=$(ls "$BUNDLE_DIR"/$PATTERN | head -1)
+          SIG="$ASSET.sig"
+          if [ ! -f "$SIG" ]; then
+            echo "::error::缺少签名文件 $SIG —— 签名应在 Build 步骤随 TAURI_SIGNING_PRIVATE_KEY 一起生成"
+            exit 1
+          fi
+          # ⚠️ 远端资产名 ≠ 本地文件名。同一个 Release 里两个 macOS 矩阵都产出
+          # `z-biz-tool-history.app.tar.gz`，tauri-action 上传时会自动加架构后缀消歧
+          #   → z-biz-tool-history_aarch64.app.tar.gz / ..._x64.app.tar.gz
+          # 所以 url 不能拿本地文件名拼，否则 latest.json 里的链接直接 404
+          # （v0.1.0 第一次发布就是这个形状：文件都在、链接全错、点更新必失败）。
+          # 做法：回查本 tag 的 release 资产，按「同扩展名 + 同架构词」唯一匹配，
+          # 再用远端 .sig 与本地 .sig 逐字节比对，确认挑的确实是同一个包。
+          LOCAL_NAME=$(basename "$ASSET")
+          EXT=".${LOCAL_NAME#*.}"
+          case "$PLATFORM" in
+            darwin-aarch64) ARCH_TOKEN="aarch64" ;;
+            darwin-x86_64)  ARCH_TOKEN="x64" ;;
+            linux-x86_64)   ARCH_TOKEN="amd64" ;;
+            windows-x86_64) ARCH_TOKEN="x64" ;;
+          esac
+          REPO="${{ github.repository }}"
+          TAG="${{ github.ref_name }}"
+          gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | [.id, .name] | @tsv' > /tmp/assets.tsv
+          MATCHES=$(awk -F'\t' -v ext="$EXT" -v arch="$ARCH_TOKEN" \
+            'index($2, ext) == length($2) - length(ext) + 1 && index($2, arch) > 0 { print }' /tmp/assets.tsv)
+          COUNT=$(printf '%s\n' "$MATCHES" | awk 'NF' | wc -l | tr -d ' ')
+          if [ "$COUNT" != "1" ]; then
+            echo "::error::在 release $TAG 里按「$EXT + $ARCH_TOKEN」匹配到 $COUNT 个资产（应为 1）："
+            printf '%s\n' "$MATCHES"
+            cut -f2 /tmp/assets.tsv
+            exit 1
+          fi
+          NAME=$(printf '%s\n' "$MATCHES" | cut -f2)
+          SIG_ID=$(awk -F'\t' -v n="$NAME.sig" '$2 == n { print $1 }' /tmp/assets.tsv)
+          if [ -z "$SIG_ID" ]; then
+            echo "::error::release 里找不到 $NAME.sig"
+            exit 1
+          fi
+          gh api "repos/$REPO/releases/assets/$SIG_ID" -H "Accept: application/octet-stream" > /tmp/remote.sig
+          if ! diff -q /tmp/remote.sig "$SIG" > /dev/null; then
+            echo "::error::远端 $NAME.sig 与本地签名不一致 —— 挑错资产了，或者签的不是同一个包"
+            exit 1
+          fi
+          URL="https://github.com/$REPO/releases/download/$TAG/$NAME"
+          node -e '
+            const fs = require("fs");
+            const [platform, url, sigPath] = process.argv.slice(1);
+            const fragment = { [platform]: { url, signature: fs.readFileSync(sigPath, "utf8").trim() } };
+            fs.writeFileSync(`updater-fragments/${platform}.json`, JSON.stringify(fragment, null, 2) + "\n");
+          ' "$PLATFORM" "$URL" "$SIG"
+
+      - name: Upload updater manifest fragment
+        if: steps.signing.outputs.mode == 'signed'
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-frag-${{ matrix.label }}
+          path: updater-fragments/*.json
+          if-no-files-found: error
+
+  # 把 4 个平台的片段合并成一个 latest.json 推到 main（固定分支）。
+  # endpoint 见 tauri.conf.json：https://raw.githubusercontent.com/z-biz-tool/z-biz-tool-history/main/latest.json
+  # 回滚 = 把 main 上的 latest.json 改回上一版（详见指南「版本号纪律与回滚」）。
+  latest-json:
+    name: Publish latest.json
+    needs: build
+    if: needs.build.outputs.signing-mode == 'signed'
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download platform fragments
+        uses: actions/download-artifact@v4
+        with:
+          pattern: updater-frag-*
+          path: updater-fragments
+          merge-multiple: true
+
+      - name: Compose latest.json and push to main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          # pubkey 还是占位符 ⇒ 客户端验不过签名，推了也是坏更新，直接跳过并警告
+          PUBKEY=$(node -p "require('./src-tauri/tauri.conf.json').plugins.updater.pubkey")
+          if [ "$PUBKEY" = "<TAURI_UPDATER_PUBKEY>" ]; then
+            echo "::warning::pubkey 仍是占位符 <TAURI_UPDATER_PUBKEY>，跳过 latest.json 推送。请先按指南填入 CEO 生成的公钥。"
+            exit 0
+          fi
+
+          NOTES=$(gh release view "$TAG" --json body -q .body 2>/dev/null || echo "Release $TAG")
+          node -e '
+            const fs = require("fs");
+            const [version, notes] = process.argv.slice(1);
+            const dir = "updater-fragments";
+            const platforms = {};
+            for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".json"))) {
+              Object.assign(platforms, JSON.parse(fs.readFileSync(`${dir}/${f}`, "utf8")));
+            }
+            if (Object.keys(platforms).length === 0) {
+              console.error("没有收集到任何平台片段，拒绝推空 latest.json");
+              process.exit(1);
+            }
+            fs.writeFileSync("latest.json", JSON.stringify({
+              version,
+              notes,
+              pub_date: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+              platforms,
+            }, null, 2) + "\n");
+            console.log("latest.json 平台:", Object.keys(platforms).join(", "));
+          ' "$VERSION" "$NOTES"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add latest.json
+          if git diff --cached --quiet; then
+            echo "latest.json 无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore(release): 更新 latest.json 到 v$VERSION [skip ci]"
+          git push origin HEAD:main

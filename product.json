@@ -1,0 +1,15 @@
+{
+  "id": "history",
+  "displayName": "ChronoLab 历史因果实验室",
+  "description": "时间轴+地图串起人物一生的因→果链，可走进场景的历史课程工作台",
+  "acceptsDeepLink": true,
+  "actions": [
+    "open"
+  ],
+  "keywords": [
+    "历史",
+    "时间轴",
+    "因果",
+    "课程"
+  ]
+}

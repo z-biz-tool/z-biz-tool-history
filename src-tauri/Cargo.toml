@@ -1,0 +1,22 @@
+[package]
+name = "z-biz-tool-history"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[lib]
+name = "z_biz_tool_history_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# 家族统一深链协议（cap-hub）：zbiz:// 的构造、解析、待处理队列与产品清单。
+cap-hub = { path = "../../z-biz-tool-capability/crates/cap-hub", features = ["tauri"] }
+tauri = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

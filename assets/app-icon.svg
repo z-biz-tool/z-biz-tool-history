@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#16323A"/>
+      <stop offset="1" stop-color="#F6A623"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7FF9E8" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#7FF9E8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="72" y="72" width="880" height="880" rx="232" fill="url(#bg)"/>
+
+  <!-- 沙漏骨架：上下横梁 + 双锥腰 -->
+  <rect x="296" y="216" width="432" height="56" rx="28" fill="#FFFFFF"/>
+  <rect x="296" y="752" width="432" height="56" rx="28" fill="#FFFFFF"/>
+
+  <!-- 上锥玻璃：宽口收向腰 -->
+  <path d="M 328 296 L 696 296 L 544 496 L 480 496 Z" fill="#FFFFFF" fill-opacity="0.92"/>
+  <!-- 下锥玻璃：腰展向宽口 -->
+  <path d="M 480 528 L 544 528 L 696 728 L 328 728 Z" fill="#FFFFFF" fill-opacity="0.92"/>
+
+  <!-- 细流：上锥底到下锥顶的一线沙，最小厚度 26 单位 -->
+  <rect x="499" y="480" width="26" height="96" rx="13" fill="#FF6B6B"/>
+
+  <!-- 上腔存沙 -->
+  <path d="M 392 424 L 632 424 L 544 496 L 480 496 Z" fill="#F6A623"/>
+
+  <!-- 下腔堆沙 -->
+  <path d="M 412 728 L 612 728 L 544 640 L 512 668 L 480 640 Z" fill="#F6A623"/>
+
+  <!-- 两侧立柱，撑起上下梁 -->
+  <rect x="312" y="272" width="32" height="480" rx="16" fill="#FFFFFF" fill-opacity="0.75"/>
+  <rect x="680" y="272" width="32" height="480" rx="16" fill="#FFFFFF" fill-opacity="0.75"/>
+
+  <!-- 落点 glow：因果落到下腔的那一点 -->
+  <circle cx="512" cy="700" r="96" fill="url(#glow)"/>
+</svg>
